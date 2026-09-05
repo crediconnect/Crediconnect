@@ -1,4 +1,4 @@
-const { dataStore, isAuthorized, json } = require('./_shared');
+const { dataStore, isAuthorizedAsync, json } = require('./_shared');
 
 const DEFAULTS = [
   { initials: 'CEO', name: 'Gloria', role: 'Chief Executive Officer', short: 'Sets company direction and represents CrediConnect to financial partners.' },
@@ -22,7 +22,7 @@ exports.handler = async (event) => {
   }
 
   if (event.httpMethod === 'POST') {
-    if (!isAuthorized(event)) return json(401, { error: 'Unauthorized' });
+    if (!(await isAuthorizedAsync(event))) return json(401, { error: 'Unauthorized' });
     let body;
     try {
       body = JSON.parse(event.body || '[]');
