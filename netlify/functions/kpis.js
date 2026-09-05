@@ -14,7 +14,7 @@ const DEFAULTS = [
 ];
 
 exports.handler = async (event) => {
-  const store = dataStore();
+  const store = dataStore(event);
 
   if (event.httpMethod === 'GET') {
     const data = await store.get('kpis', { type: 'json' });

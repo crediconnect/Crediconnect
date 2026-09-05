@@ -24,15 +24,19 @@ exports.handler = async (event) => {
     return json(401, { error: 'Incorrect password.' });
   }
 
-  const store = dataStore();
-  const key = 'otp:admin';
-  const record = await store.get(key, { type: 'json' });
-  if (!record || record.code !== String(code) || record.expires < Date.now()) {
-    return json(401, { error: 'That code is incorrect or has expired.' });
-  }
-  await store.delete(key);
+  try {
+    const store = dataStore(event);
+    const key = 'otp:admin';
+    const record = await store.get(key, { type: 'json' });
+    if (!record || record.code !== String(code) || record.expires < Date.now()) {
+      return json(401, { error: 'That code is incorrect or has expired.' });
+    }
+    await store.delete(key);
 
-  const token = crypto.randomBytes(24).toString('hex');
-  await store.setJSON(`session:${token}`, { expires: Date.now() + SESSION_TTL_MS });
-  return json(200, { ok: true, token });
+    const token = crypto.randomBytes(24).toString('hex');
+    await store.setJSON(`session:${token}`, { expires: Date.now() + SESSION_TTL_MS });
+    return json(200, { ok: true, token });
+  } catch (err) {
+    return json(500, { error: `Could not verify the code (${err.message || 'storage error'}).` });
+  }
 };

@@ -18,11 +18,15 @@ exports.handler = async (event) => {
   if (body.purpose !== 'admin') return json(400, { error: 'Unknown purpose' });
 
   const code = String(crypto.randomInt(100000, 1000000));
-  const store = dataStore();
-  await store.setJSON('otp:admin', {
-    code,
-    expires: Date.now() + OTP_TTL_MS,
-  });
+  try {
+    const store = dataStore(event);
+    await store.setJSON('otp:admin', {
+      code,
+      expires: Date.now() + OTP_TTL_MS,
+    });
+  } catch (err) {
+    return json(500, { error: `Could not save the code (${err.message || 'storage error'}).` });
+  }
 
   const result = await sendTelegramMessage(
     `🔐 CrediConnect Staff Portal sign-in code: ${code}\n\nExpires in 10 minutes. If you didn't request this, you can ignore it.`

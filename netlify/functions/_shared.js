@@ -1,16 +1,19 @@
-const { getStore } = require('@netlify/blobs');
+const { getStore, connectLambda } = require('@netlify/blobs');
 
 const STORE_NAME = 'crediconnect-data';
 
-function dataStore() {
-  // On most Netlify sites, getStore(name) auto-detects the site/credentials.
-  // Some sites don't get that automatic context (MissingBlobsEnvironmentError),
-  // so we fall back to explicit credentials if they're set as env vars.
+function dataStore(event) {
+  // On most Netlify sites, getStore(name) auto-detects the site/credentials —
+  // but only for the newer function API. These functions use the classic
+  // `exports.handler = async (event) => {...}` style (Lambda compatibility
+  // mode), which needs an explicit connectLambda(event) call first, or
+  // getStore() throws MissingBlobsEnvironmentError.
   const siteID = process.env.BLOBS_SITE_ID;
   const token = process.env.BLOBS_TOKEN;
   if (siteID && token) {
     return getStore({ name: STORE_NAME, siteID, token });
   }
+  if (event) connectLambda(event);
   return getStore(STORE_NAME);
 }
 
@@ -31,7 +34,7 @@ async function isAuthorizedAsync(event) {
   const token = event.headers['x-admin-session'] || event.headers['X-Admin-Session'];
   if (!token) return false;
   try {
-    const store = dataStore();
+    const store = dataStore(event);
     const session = await store.get(`session:${token}`, { type: 'json' });
     return !!(session && session.expires > Date.now());
   } catch {
