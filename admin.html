@@ -31,6 +31,16 @@
   <div id="lockMsg" class="status" style="margin-top:10px"></div>
 </div>
 
+<div id="otpScreen" style="max-width:380px;margin:80px auto;text-align:center;display:none">
+  <div class="kicker">Staff Portal</div>
+  <h2 style="font:600 30px Georgia,serif;margin:10px 0">Enter the code we emailed you</h2>
+  <p style="color:var(--muted);font-size:14px" id="otpSentTo">We sent a 6-digit code to the staff email on file.</p>
+  <input type="text" id="otpCodeInput" placeholder="6-digit code" inputmode="numeric" maxlength="6" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:14px 0;text-align:center;letter-spacing:4px">
+  <button class="btn primary" id="otpConfirmBtn" style="width:100%">Confirm code</button>
+  <div id="otpMsg" class="status" style="margin-top:10px"></div>
+  <button type="button" id="otpResendBtn" class="add-row" style="margin-top:14px">Resend code</button>
+</div>
+
 <div id="adminApp" class="admin-wrap" style="display:none">
   <div class="section-head" style="margin-bottom:20px">
     <div class="kicker">Staff Portal</div>
@@ -74,10 +84,21 @@ const menu=$('.menu'), links=$('.nav-links');
 if(menu)menu.onclick=()=>{links.classList.toggle('open');menu.setAttribute('aria-expanded',links.classList.contains('open'))};
 
 let PASSWORD='';
+let SESSION_TOKEN='';
 const api=p=>`/.netlify/functions/${p}`;
 
 function authedFetch(path,options={}){
-  return fetch(api(path),{...options,headers:{...(options.headers||{}),'X-Admin-Password':PASSWORD}});
+  // Prefer the OTP-issued session token; fall back to the plain password
+  // header if email verification was never configured (no RESEND_API_KEY).
+  const authHeader=SESSION_TOKEN?{'X-Admin-Session':SESSION_TOKEN}:{'X-Admin-Password':PASSWORD};
+  return fetch(api(path),{...options,headers:{...(options.headers||{}),...authHeader}});
+}
+
+function enterAdminApp(){
+  $('#lockScreen').style.display='none';
+  $('#otpScreen').style.display='none';
+  $('#adminApp').style.display='block';
+  loadAll();
 }
 
 $('#unlockBtn').onclick=async()=>{
@@ -88,15 +109,56 @@ $('#unlockBtn').onclick=async()=>{
     const res=await fetch(api('admin-auth'),{method:'POST',headers:{'X-Admin-Password':pw}});
     if(!res.ok){lockMsg.textContent='Incorrect password.';lockMsg.className='status error';return}
     PASSWORD=pw;
+    // Password is correct. Try to layer an emailed OTP on top; if that
+    // isn't configured on this deploy, just sign in on the password alone.
+    lockMsg.textContent='Sending verification code...';
+    const otpRes=await fetch(api('send-otp'),{method:'POST',body:JSON.stringify({purpose:'admin'})});
+    if(!otpRes.ok){
+      enterAdminApp();
+      return;
+    }
+    const otpData=await otpRes.json();
     $('#lockScreen').style.display='none';
-    $('#adminApp').style.display='block';
-    loadAll();
+    $('#otpScreen').style.display='block';
+    $('#otpSentTo').textContent=`We sent a 6-digit code to ${otpData.sentTo||'the staff email on file'}.`;
+    $('#otpCodeInput').value='';
+    $('#otpCodeInput').focus();
   }catch{
     lockMsg.textContent='Could not reach the server. Is this deployed on Netlify?';
     lockMsg.className='status error';
   }
 };
 $('#pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#unlockBtn').click()});
+
+$('#otpConfirmBtn').onclick=async()=>{
+  const code=$('#otpCodeInput').value.trim();
+  const otpMsg=$('#otpMsg');
+  if(!/^\d{6}$/.test(code)){otpMsg.textContent='Enter the 6-digit code.';otpMsg.className='status error';return}
+  otpMsg.textContent='Checking...';otpMsg.className='status';
+  try{
+    const res=await fetch(api('verify-otp'),{method:'POST',body:JSON.stringify({purpose:'admin',password:PASSWORD,code})});
+    const data=await res.json();
+    if(!res.ok){otpMsg.textContent=data.error||'That code is incorrect or has expired.';otpMsg.className='status error';return}
+    SESSION_TOKEN=data.token;
+    enterAdminApp();
+  }catch{
+    otpMsg.textContent='Could not reach the server.';otpMsg.className='status error';
+  }
+};
+$('#otpCodeInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#otpConfirmBtn').click()});
+
+$('#otpResendBtn').onclick=async()=>{
+  const otpMsg=$('#otpMsg');
+  otpMsg.textContent='Resending...';otpMsg.className='status';
+  try{
+    const res=await fetch(api('send-otp'),{method:'POST',body:JSON.stringify({purpose:'admin'})});
+    const data=await res.json();
+    otpMsg.textContent=res.ok?'A new code is on its way.':(data.error||'Could not resend the code.');
+    otpMsg.className=res.ok?'status success':'status error';
+  }catch{
+    otpMsg.textContent='Could not reach the server.';otpMsg.className='status error';
+  }
+};
 
 // Tabs
 $$('.admin-tab').forEach(tab=>tab.onclick=()=>{
