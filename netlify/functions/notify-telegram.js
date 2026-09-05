@@ -1,4 +1,4 @@
-const { json } = require('./_shared');
+const { json, sendTelegramMessage } = require('./_shared');
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
@@ -8,13 +8,6 @@ exports.handler = async (event) => {
     body = JSON.parse(event.body || '{}');
   } catch {
     return json(400, { error: 'Invalid request body' });
-  }
-
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!botToken || !chatId) {
-    // Not configured — the caller (script.js) treats this as a no-op, not an error.
-    return json(500, { error: 'Telegram notifications are not configured yet.' });
   }
 
   const { type, name, email, company, position } = body;
@@ -27,19 +20,8 @@ exports.handler = async (event) => {
     return json(400, { error: 'Unknown notification type' });
   }
 
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text }),
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      return json(502, { error: `Telegram rejected the request: ${detail || res.status}` });
-    }
-  } catch {
-    return json(502, { error: 'Could not reach Telegram.' });
-  }
+  const result = await sendTelegramMessage(text);
+  if (!result.ok) return json(502, { error: result.error });
 
   return json(200, { ok: true });
 };

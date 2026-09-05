@@ -16,7 +16,7 @@ function dataStore() {
 
 // Legacy check: compares the password sent by the admin page against the
 // ADMIN_PASSWORD environment variable. Still supported so the site keeps
-// working even if the email-OTP step below is never configured.
+// working even if the Telegram OTP step below is never configured.
 function isAuthorized(event) {
   const provided = event.headers['x-admin-password'] || event.headers['X-Admin-Password'];
   const expected = process.env.ADMIN_PASSWORD;
@@ -25,7 +25,7 @@ function isAuthorized(event) {
 }
 
 // Newer check: also accepts a short-lived session token issued by
-// verify-otp.js after the admin completes password + email OTP.
+// verify-otp.js after the admin completes password + Telegram OTP.
 async function isAuthorizedAsync(event) {
   if (isAuthorized(event)) return true;
   const token = event.headers['x-admin-session'] || event.headers['X-Admin-Session'];
@@ -47,29 +47,29 @@ function json(statusCode, body) {
   };
 }
 
-// Sends an email via Resend (https://resend.com). Requires RESEND_API_KEY and
-// RESEND_FROM environment variables. Returns { ok:false, error } instead of
-// throwing so callers can turn that straight into a JSON error response.
-async function sendEmail({ to, subject, html }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM;
-  if (!apiKey || !from) {
-    return { ok: false, error: 'Email sending is not configured yet (missing RESEND_API_KEY / RESEND_FROM).' };
+// Sends a message via the Telegram Bot API. Requires TELEGRAM_BOT_TOKEN and
+// TELEGRAM_CHAT_ID environment variables. Returns { ok:false, error } instead
+// of throwing so callers can turn that straight into a JSON error response.
+async function sendTelegramMessage(text) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) {
+    return { ok: false, error: 'Telegram is not configured yet (missing TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID).' };
   }
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, subject, html }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text }),
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      return { ok: false, error: `Email provider rejected the request: ${detail || res.status}` };
+      return { ok: false, error: `Telegram rejected the request: ${detail || res.status}` };
     }
     return { ok: true };
   } catch {
-    return { ok: false, error: 'Could not reach the email provider.' };
+    return { ok: false, error: 'Could not reach Telegram.' };
   }
 }
 
-module.exports = { dataStore, isAuthorized, isAuthorizedAsync, json, sendEmail };
+module.exports = { dataStore, isAuthorized, isAuthorizedAsync, json, sendTelegramMessage };
