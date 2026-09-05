@@ -33,8 +33,8 @@
 
 <div id="otpScreen" style="max-width:380px;margin:80px auto;text-align:center;display:none">
   <div class="kicker">Staff Portal</div>
-  <h2 style="font:600 30px Georgia,serif;margin:10px 0">Enter the code we emailed you</h2>
-  <p style="color:var(--muted);font-size:14px" id="otpSentTo">We sent a 6-digit code to the staff email on file.</p>
+  <h2 style="font:600 30px Georgia,serif;margin:10px 0">Enter the code we sent to Telegram</h2>
+  <p style="color:var(--muted);font-size:14px" id="otpSentTo">We sent a 6-digit code to the staff Telegram chat.</p>
   <input type="text" id="otpCodeInput" placeholder="6-digit code" inputmode="numeric" maxlength="6" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:14px 0;text-align:center;letter-spacing:4px">
   <button class="btn primary" id="otpConfirmBtn" style="width:100%">Confirm code</button>
   <div id="otpMsg" class="status" style="margin-top:10px"></div>
@@ -89,7 +89,7 @@ const api=p=>`/.netlify/functions/${p}`;
 
 function authedFetch(path,options={}){
   // Prefer the OTP-issued session token; fall back to the plain password
-  // header if email verification was never configured (no RESEND_API_KEY).
+  // header if Telegram verification was never configured (no TELEGRAM_BOT_TOKEN).
   const authHeader=SESSION_TOKEN?{'X-Admin-Session':SESSION_TOKEN}:{'X-Admin-Password':PASSWORD};
   return fetch(api(path),{...options,headers:{...(options.headers||{}),...authHeader}});
 }
@@ -109,8 +109,8 @@ $('#unlockBtn').onclick=async()=>{
     const res=await fetch(api('admin-auth'),{method:'POST',headers:{'X-Admin-Password':pw}});
     if(!res.ok){lockMsg.textContent='Incorrect password.';lockMsg.className='status error';return}
     PASSWORD=pw;
-    // Password is correct. Try to layer an emailed OTP on top; if that
-    // isn't configured on this deploy, just sign in on the password alone.
+    // Password is correct. Try to layer a Telegram-delivered OTP on top; if
+    // that isn't configured on this deploy, just sign in on the password alone.
     lockMsg.textContent='Sending verification code...';
     const otpRes=await fetch(api('send-otp'),{method:'POST',body:JSON.stringify({purpose:'admin'})});
     if(!otpRes.ok){
@@ -120,7 +120,7 @@ $('#unlockBtn').onclick=async()=>{
     const otpData=await otpRes.json();
     $('#lockScreen').style.display='none';
     $('#otpScreen').style.display='block';
-    $('#otpSentTo').textContent=`We sent a 6-digit code to ${otpData.sentTo||'the staff email on file'}.`;
+    $('#otpSentTo').textContent=`We sent a 6-digit code to ${otpData.sentTo||'the staff Telegram chat'}.`;
     $('#otpCodeInput').value='';
     $('#otpCodeInput').focus();
   }catch{

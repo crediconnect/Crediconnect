@@ -51,45 +51,32 @@ Note: admin.html has no built-in rate limiting or account system beyond
 the single shared password — fine for a class project / internal demo,
 not for a real production site with sensitive data.
 
-Email OTP verification (optional, added on top of the above):
+Staff Portal login code via Telegram (optional, added on top of the above):
 - Staff Portal sign-in: after the correct password, admin.html now also
-  emails a 6-digit code and asks for it before unlocking the editor.
-- Contact form and Careers application: each has a "Verify email" step
-  next to the email field. A code is emailed to whatever address the
-  visitor typed; entering it correctly unlocks the Submit button.
-- This uses Resend (resend.com) to send the emails and Netlify Blobs
-  (the same store used above) to hold codes for 10 minutes.
+  sends a 6-digit code to the staff Telegram chat and asks for it before
+  unlocking the editor.
+- This uses the same Telegram bot as the staff alerts below (see "One-time
+  setup for Telegram alerts") and Netlify Blobs (the same store used
+  above) to hold the code for 10 minutes. No separate setup is needed —
+  once TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set, both the login
+  code and the alerts below work.
+- If TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are left unset, this quietly
+  turns itself off: admin.html falls back to password-only sign-in —
+  nothing breaks, the site just behaves as it did before this feature was
+  added.
+- There used to be an emailed OTP step here (via Resend) for the Staff
+  Portal, plus an email "Verify email" step on the contact and careers
+  forms. Both have been removed — Resend is no longer used anywhere in
+  this project, and the contact/careers forms go straight to an enabled
+  Submit button with no verification step.
 
-One-time setup for OTP, in Netlify → Site configuration → Environment
-variables, in addition to ADMIN_PASSWORD above:
-1. RESEND_API_KEY — an API key from a free Resend account (resend.com).
-2. RESEND_FROM — the "from" address to send as, e.g.
-   "CrediConnect Solutions <onboarding@resend.dev>" (Resend's free
-   onboarding@resend.dev sender works without verifying your own domain;
-   for a real domain, verify it in Resend first and use that instead).
-3. ADMIN_EMAIL — the staff inbox that should receive the admin sign-in
-   codes (only used for the Staff Portal step, never shown to visitors).
-
-If RESEND_API_KEY / RESEND_FROM are left unset, OTP quietly turns itself
-off everywhere: admin.html falls back to password-only sign-in, and the
-contact/careers forms skip straight to an enabled Submit button — nothing
-breaks, the site just behaves as it did before this feature was added.
-
-Note: the contact/careers OTP gate only controls whether the Submit
-button is enabled in the browser — like the admin password, it's a
-reasonable deterrent for a class project, not tamper-proof server-side
-enforcement (someone could still edit the page's JavaScript to submit
-without verifying). Good enough to cut down on obviously fake emails,
-not meant to stop a determined bad actor.
-
-SMS notifications to staff (separate from the email OTP above):
+Instant alerts to staff (separate from the login code above):
 - Every time the contact form or careers application is successfully
   submitted, an instant message is sent to a Telegram chat via a free
   Telegram bot, e.g. "New contact inquiry — CrediConnect Solutions.
   Name: Juan Dela Cruz. Company: ..., Email: juan@email.com."
-- This is a one-way alert to staff, not a code the visitor has to enter
-  — different from the email OTP step, which is about verifying the
-  visitor's own email address before they can submit.
+- This is a one-way alert to staff, not a code anyone has to enter — it's
+  purely informational, sent right after a successful submission.
 - This uses Telegram instead of real SMS because genuine SMS delivery
   isn't free anywhere at real volume (Twilio, Semaphore, etc. all
   charge per text past a small trial credit) — Telegram's Bot API is
