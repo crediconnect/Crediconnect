@@ -20,9 +20,11 @@ careers-application) → enter the notification email address → Save.
 Submissions are also visible anytime in Site configuration → Forms.
 
 Admin backend (Netlify Functions + Netlify Blobs — a real database):
-- Leadership roster (about.html), the 8-item KPI dashboard (about.html)
-  and the Open Roles list (careers.html) are now editable at runtime
-  through admin.html ("Staff Portal" link in the footer of every page).
+- Leadership roster (about.html), the 8-item KPI dashboard (about.html),
+  twelve months of KPI trend data (also about.html, feeding the trend
+  charts), and the Open Roles list (careers.html) are now editable at
+  runtime through admin.html ("Staff Portal" link in the footer of every
+  page).
 - Data lives in Netlify Blobs (a key-value store built into every Netlify
   site — no external database, no signup, no API keys). Files under
   netlify/functions/ read and write it.
@@ -89,6 +91,32 @@ new inquiry/application came in (and, for careers, which role) and points
 staff to the Netlify dashboard, where the actual submission with personal
 details is stored. Personal information is no longer relayed through a
 third-party chat app.
+
+KPI monthly trends (about.html):
+- The About page now shows three trend charts under the KPI dashboard —
+  percentage metrics (CSAT, FCR, Attendance, QA, Call Resolution,
+  Productivity), Average Handle Time, and Net Promoter Score — each
+  plotted across 12 months.
+- Data lives in Netlify Blobs under kpi-monthly (netlify/functions/
+  kpi-monthly.js), seeded from the team's "Call Center KPI Dashboard"
+  spreadsheet. Edit it in admin.html under the "Monthly Trends" tab — a
+  12-row table (one row per month, one column per metric) rather than the
+  add/remove row editor used for the other sections, since the month list
+  itself doesn't change.
+- The charts are hand-rolled inline SVG (in script.js) rather than a
+  charting library, since there were only three small charts to draw and
+  it avoids an extra script dependency.
+
+Our Facility section (about.html):
+- Two concept images — facility-building-blueprint.webp (an architectural
+  concept for a 4-story office) and facility-rooms-blueprint.webp (concept
+  floor plans for the Operations Floor, Supervisor Area, QA Room, HR
+  Office, Training Room, Restrooms, Server Room, and Emergency Exit) — are
+  presented as a "Facility concept" section on the About page, labeled as
+  concept art rather than photos of an actual existing building.
+- facility-rooms-blueprint.webp is also used, very faintly (5% opacity),
+  as a background texture behind the "Our story" panel earlier on the
+  same page.
 
 Staff Portal login code via Telegram (optional, added on top of the above):
 - Staff Portal sign-in: after the correct password, admin.html now also

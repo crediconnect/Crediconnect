@@ -15,6 +15,10 @@
 #lockScreen{max-width:380px;margin:80px auto;text-align:center}
 #lockScreen input{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:14px 0}
 .save-bar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:14px 0;display:flex;gap:12px;align-items:center;margin-top:10px}
+#monthlyTable th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--line)}
+#monthlyTable td{padding:4px 6px;border-bottom:1px solid var(--line)}
+#monthlyTable input{width:64px;border:1px solid var(--line);border-radius:6px;padding:6px 7px;font-size:12px}
+#monthlyTable input.month-input{width:100px;font-weight:700}
 </style>
 </head><body>
 <div class="top"><div class="container"><span>Financial Services Customer Experience</span><span class="top-right"><a href="contact.html">Business inquiries</a><a href="careers.html">Careers</a></span></div></div>
@@ -52,6 +56,7 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="admin-tab active" data-panel="leadership">Leadership</button>
       <button class="admin-tab" data-panel="kpis">KPI Dashboard</button>
+      <button class="admin-tab" data-panel="kpi-monthly">Monthly Trends</button>
       <button class="admin-tab" data-panel="jobs">Open Roles</button>
       <button class="admin-tab" data-panel="activity">Activity Log</button>
     </div>
@@ -75,6 +80,27 @@
     <div id="jobsRows"></div>
     <button class="add-row" type="button" data-add="jobs">+ Add open role</button>
     <div class="save-bar"><button class="btn primary" data-save="jobs">Save open roles</button><span class="status" id="status-jobs"></span></div>
+  </div>
+
+  <div class="admin-panel" id="panel-kpi-monthly">
+    <p class="note" style="margin-bottom:14px">Twelve months of tracked data, sourced from the team's KPI dashboard spreadsheet. This powers the trend charts on the About page. Percentages are whole numbers (91 = 91%), AHT is in minutes, NPS is a raw score.</p>
+    <div style="overflow-x:auto">
+      <table id="monthlyTable" style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
+        <thead><tr style="text-align:left">
+          <th style="padding:6px 8px">Month</th>
+          <th style="padding:6px 8px">CSAT %</th>
+          <th style="padding:6px 8px">AHT min</th>
+          <th style="padding:6px 8px">FCR %</th>
+          <th style="padding:6px 8px">NPS</th>
+          <th style="padding:6px 8px">Attendance %</th>
+          <th style="padding:6px 8px">QA %</th>
+          <th style="padding:6px 8px">Call Res %</th>
+          <th style="padding:6px 8px">Productivity %</th>
+        </tr></thead>
+        <tbody id="monthlyRows"></tbody>
+      </table>
+    </div>
+    <div class="save-bar"><button class="btn primary" data-save="kpi-monthly">Save monthly trends</button><span class="status" id="status-kpi-monthly"></span></div>
   </div>
 
   <div class="admin-panel" id="panel-activity">
@@ -194,7 +220,7 @@ $$('.admin-tab[data-panel]').forEach(tab=>tab.onclick=()=>{
 });
 
 // ---- Field schemas per data type ----
-const SECTION_LABELS={leadership:'Leadership roster',kpis:'KPI dashboard',jobs:'Open roles'};
+const SECTION_LABELS={leadership:'Leadership roster',kpis:'KPI dashboard',jobs:'Open roles','kpi-monthly':'Monthly KPI trends'};
 
 async function loadActivityLog(){
   const wrap=$('#activityRows');
@@ -232,8 +258,24 @@ const SCHEMAS={
     {key:'description',label:'Description',textarea:true},
   ],
 };
+const MONTHLY_COLUMNS=['month','csat','aht','fcr','nps','attendance','qa','callRes','productivity'];
 
-const state={leadership:[],kpis:[],jobs:[]};
+const state={leadership:[],kpis:[],jobs:[],'kpi-monthly':[]};
+
+function renderMonthlyRows(){
+  const wrap=$('#monthlyRows');
+  wrap.innerHTML=state['kpi-monthly'].map((row,i)=>`
+    <tr data-i="${i}">
+      ${MONTHLY_COLUMNS.map(col=>`<td><input class="${col==='month'?'month-input':''}" data-field="${col}" value="${escAttr(row[col])}"></td>`).join('')}
+    </tr>`).join('');
+  $$('tr',wrap).forEach(row=>{
+    const i=Number(row.dataset.i);
+    $$('[data-field]',row).forEach(inp=>inp.addEventListener('input',()=>{
+      const col=inp.dataset.field;
+      state['kpi-monthly'][i][col]=col==='month'?inp.value:Number(inp.value);
+    }));
+  });
+}
 
 function renderRows(type){
   const wrap=$('#'+type+'Rows');
@@ -293,12 +335,12 @@ $$('[data-save]').forEach(btn=>btn.onclick=async()=>{
 });
 
 async function loadAll(){
-  for(const type of ['leadership','kpis','jobs']){
+  for(const type of ['leadership','kpis','kpi-monthly','jobs']){
     try{
       const res=await fetch(api(type));
       state[type]=await res.json();
     }catch{state[type]=[]}
-    renderRows(type);
+    if(type==='kpi-monthly')renderMonthlyRows();else renderRows(type);
   }
 }
 </script>

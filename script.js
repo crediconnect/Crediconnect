@@ -158,3 +158,72 @@ if(jobsGrid){
     if(sel)sel.innerHTML='<option value="" disabled selected>Select a role</option>'+list.map(j=>`<option>${esc(j.title)}</option>`).join('')+'<option>Other</option>';
   }).catch(()=>{});
 }
+
+// ---- Monthly KPI trend charts (about.html) ----
+// Lightweight inline SVG charts — no external chart library needed for
+// three small trend visuals fed by kpi-monthly.js / the admin panel.
+const CHART_COLORS=['#2451d1','#dca34a','#17233a','#5ba3d0','#8a7fd6','#4caf7d'];
+
+function svgLineChart(width,height,seriesList,labels,opts={}){
+  const pad={l:38,r:12,t:14,b:22};
+  const w=width-pad.l-pad.r, h=height-pad.t-pad.b;
+  const allVals=seriesList.flatMap(s=>s.values);
+  const min=opts.min??Math.min(...allVals), max=opts.max??Math.max(...allVals);
+  const range=(max-min)||1;
+  const x=i=>pad.l+(labels.length>1?(i/(labels.length-1))*w:w/2);
+  const y=v=>pad.t+h-((v-min)/range)*h;
+  const gridLines=[0,.25,.5,.75,1].map(t=>{
+    const yy=pad.t+h-t*h, val=min+t*range;
+    return `<line x1="${pad.l}" x2="${width-pad.r}" y1="${yy}" y2="${yy}" stroke="#e3e9f2" stroke-width="1"/><text x="${pad.l-6}" y="${yy+3}" font-size="9" fill="#8592a8" text-anchor="end">${opts.yFormat?opts.yFormat(val):Math.round(val)}</text>`;
+  }).join('');
+  const xLabels=labels.map((l,i)=>`<text x="${x(i)}" y="${height-4}" font-size="9" fill="#8592a8" text-anchor="middle">${esc(String(l)).slice(0,3)}</text>`).join('');
+  const lines=seriesList.map(s=>{
+    const pts=s.values.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+    return `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="auto" role="img" aria-label="Line chart">${gridLines}${lines}${xLabels}</svg>`;
+}
+
+function svgBarChart(width,height,values,labels,opts={}){
+  const pad={l:32,r:10,t:14,b:22};
+  const w=width-pad.l-pad.r, h=height-pad.t-pad.b;
+  const max=opts.max??Math.max(...values), min=opts.min??0;
+  const range=(max-min)||1;
+  const gap=w/values.length, bw=gap*0.6;
+  const bars=values.map((v,i)=>{
+    const bh=((v-min)/range)*h;
+    const bx=pad.l+i*gap+(gap-bw)/2;
+    const by=pad.t+h-bh;
+    return `<rect x="${bx}" y="${by}" width="${bw}" height="${Math.max(bh,0)}" rx="2" fill="${opts.color||'#2451d1'}"/>`;
+  }).join('');
+  const xLabels=labels.map((l,i)=>`<text x="${pad.l+i*gap+gap/2}" y="${height-4}" font-size="9" fill="#8592a8" text-anchor="middle">${esc(String(l)).slice(0,3)}</text>`).join('');
+  const gridBase=`<line x1="${pad.l}" x2="${width-pad.r}" y1="${pad.t+h}" y2="${pad.t+h}" stroke="#e3e9f2" stroke-width="1"/>`;
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="auto" role="img" aria-label="Bar chart">${gridBase}${bars}${xLabels}</svg>`;
+}
+
+function renderKpiTrendCharts(list){
+  const labels=list.map(m=>m.month);
+  const pctMetrics=[
+    {key:'csat',label:'CSAT',color:CHART_COLORS[0]},
+    {key:'fcr',label:'FCR',color:CHART_COLORS[1]},
+    {key:'attendance',label:'Attendance',color:CHART_COLORS[2]},
+    {key:'qa',label:'QA Score',color:CHART_COLORS[3]},
+    {key:'callRes',label:'Call Resolution',color:CHART_COLORS[4]},
+    {key:'productivity',label:'Productivity',color:CHART_COLORS[5]},
+  ];
+  const pctSeries=pctMetrics.map(m=>({...m,values:list.map(row=>Number(row[m.key])||0)}));
+  const legend=pctMetrics.map(m=>`<span style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:12px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:3px;background:${m.color};display:inline-block"></span>${esc(m.label)}</span>`).join('');
+  const pctChart=$('#kpiPctChart'), pctLegend=$('#kpiPctLegend'), ahtChart=$('#kpiAhtChart'), npsChart=$('#kpiNpsChart');
+  if(pctChart)pctChart.innerHTML=svgLineChart(760,220,pctSeries,labels,{min:60,max:100,yFormat:v=>Math.round(v)+'%'});
+  if(pctLegend)pctLegend.innerHTML=legend;
+  if(ahtChart)ahtChart.innerHTML=svgLineChart(760,150,[{values:list.map(row=>Number(row.aht)||0),color:CHART_COLORS[0]}],labels,{yFormat:v=>v+'m'});
+  if(npsChart)npsChart.innerHTML=svgBarChart(760,150,list.map(row=>Number(row.nps)||0),labels,{max:100,color:CHART_COLORS[1]});
+}
+
+const kpiTrendWrap=$('#kpiTrendCharts');
+if(kpiTrendWrap){
+  fetch(api('kpi-monthly')).then(r=>r.ok?r.json():Promise.reject()).then(list=>{
+    if(!Array.isArray(list)||!list.length)return;
+    renderKpiTrendCharts(list);
+  }).catch(()=>{});
+}
