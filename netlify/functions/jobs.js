@@ -1,4 +1,4 @@
-const { dataStore, isAuthorizedAsync, json } = require('./_shared');
+const { dataStore, isAuthorizedAsync, isTrustedOrigin, appendAuditLog, json } = require('./_shared');
 
 const DEFAULTS = [
   { title: 'Customer Service Representative', description: 'Front-line financial account and billing support.' },
@@ -17,6 +17,7 @@ exports.handler = async (event) => {
   }
 
   if (event.httpMethod === 'POST') {
+    if (!isTrustedOrigin(event)) return json(403, { error: 'Request origin not allowed' });
     if (!(await isAuthorizedAsync(event))) return json(401, { error: 'Unauthorized' });
     let body;
     try {
@@ -26,6 +27,7 @@ exports.handler = async (event) => {
     }
     if (!Array.isArray(body)) return json(400, { error: 'Expected an array of jobs' });
     await store.setJSON('jobs', body);
+    await appendAuditLog(store, { action: 'update', section: 'jobs', count: body.length });
     return json(200, { ok: true });
   }
 

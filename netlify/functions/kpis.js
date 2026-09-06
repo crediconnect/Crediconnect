@@ -1,4 +1,4 @@
-const { dataStore, isAuthorizedAsync, json } = require('./_shared');
+const { dataStore, isAuthorizedAsync, isTrustedOrigin, appendAuditLog, json } = require('./_shared');
 
 // kind: "stat" renders as a big number tile; "bar" renders as a progress bar.
 // width is only used for "bar" entries (0-100).
@@ -22,6 +22,7 @@ exports.handler = async (event) => {
   }
 
   if (event.httpMethod === 'POST') {
+    if (!isTrustedOrigin(event)) return json(403, { error: 'Request origin not allowed' });
     if (!(await isAuthorizedAsync(event))) return json(401, { error: 'Unauthorized' });
     let body;
     try {
@@ -31,6 +32,7 @@ exports.handler = async (event) => {
     }
     if (!Array.isArray(body)) return json(400, { error: 'Expected an array of KPIs' });
     await store.setJSON('kpis', body);
+    await appendAuditLog(store, { action: 'update', section: 'kpis', count: body.length });
     return json(200, { ok: true });
   }
 
