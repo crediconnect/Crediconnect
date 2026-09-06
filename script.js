@@ -23,7 +23,41 @@ function notifyTelegram(data){
   try{fetch('/.netlify/functions/notify-telegram',{method:'POST',body:JSON.stringify(data)}).catch(()=>{})}catch{}
 }
 // Contact validation
-const form=$('#contactForm');if(form){const msg=$('#formMessage');const fields=$$('input,textarea',form).filter(f=>f.name!=='bot-field'&&f.name!=='form-name');const valid=f=>{const ok=f.checkValidity();f.closest('.field').classList.toggle('valid',ok);f.closest('.field').classList.toggle('invalid',!ok);return ok};fields.forEach(f=>['input','blur'].forEach(ev=>f.addEventListener(ev,()=>valid(f))));const submitBtn=$('button[type=submit]',form);form.onsubmit=e=>{e.preventDefault();const ok=fields.every(valid);if(!ok){msg.textContent='Please check the highlighted fields.';msg.className='status error';return}if(submitBtn)submitBtn.disabled=true;msg.textContent='Sending...';msg.className='status';const fd=new FormData(form);const smsPayload={type:'contact',name:fd.get('name'),email:fd.get('email'),company:fd.get('company')};fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(fd).toString()}).then(()=>{msg.textContent='Thank you. Your inquiry has been sent to the CrediConnect team.';msg.className='status success';notifyTelegram(smsPayload);form.reset();fields.forEach(f=>f.closest('.field').classList.remove('valid','invalid'))}).catch(()=>{msg.textContent='Something went wrong sending your message. Please try again or email us directly.';msg.className='status error'}).finally(()=>{if(submitBtn)submitBtn.disabled=false})}}
+const form=$('#contactForm');if(form){
+  const msg=$('#formMessage');
+  const fields=$$('input,textarea',form).filter(f=>f.name!=='bot-field'&&f.name!=='form-name');
+  const valid=f=>{const ok=f.checkValidity();f.closest('.field').classList.toggle('valid',ok);f.closest('.field').classList.toggle('invalid',!ok);return ok};
+  fields.forEach(f=>['input','blur'].forEach(ev=>f.addEventListener(ev,()=>valid(f))));
+  const submitBtn=$('button[type=submit]',form);
+  let submitting=false; // guards against double-submits from a fast double-click, independent of button disabled state
+  form.onsubmit=e=>{
+    e.preventDefault();
+    if(submitting)return;
+    const ok=fields.every(valid);
+    if(!ok){msg.textContent='Please check the highlighted fields.';msg.className='status error';return}
+    submitting=true;
+    if(submitBtn)submitBtn.disabled=true;
+    msg.textContent='Sending...';msg.className='status';msg.setAttribute('aria-live','polite');
+    const fd=new FormData(form);
+    const smsPayload={type:'contact',name:fd.get('name'),email:fd.get('email'),company:fd.get('company')};
+    fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(fd).toString()})
+      .then(res=>{
+        // Netlify Forms returns a redirect/200 on success; anything else (4xx/5xx)
+        // means the submission was rejected, so don't tell the visitor it worked.
+        if(!res.ok)throw new Error('submission rejected');
+        msg.textContent='Thank you. Your inquiry has been sent to the CrediConnect team.';
+        msg.className='status success';
+        notifyTelegram(smsPayload);
+        form.reset();
+        fields.forEach(f=>f.closest('.field').classList.remove('valid','invalid'));
+      })
+      .catch(()=>{
+        msg.textContent='Something went wrong sending your message. Please try again or email us directly.';
+        msg.className='status error';
+      })
+      .finally(()=>{submitting=false;if(submitBtn)submitBtn.disabled=false});
+  };
+}
 
 // Careers apply buttons — prefill role and scroll to form
 function wireApplyButtons(){
@@ -43,16 +77,20 @@ if(careersForm){
   const cValid=f=>{const ok=f.checkValidity();f.closest('.field').classList.toggle('valid',ok);f.closest('.field').classList.toggle('invalid',!ok);return ok};
   cFields.forEach(f=>['input','blur','change'].forEach(ev=>f.addEventListener(ev,()=>cValid(f))));
   const cSubmitBtn=$('button[type=submit]',careersForm);
+  let cSubmitting=false;
   careersForm.onsubmit=e=>{
     e.preventDefault();
+    if(cSubmitting)return;
     const ok=cFields.every(cValid);
     if(!ok){cMsg.textContent='Please check the highlighted fields.';cMsg.className='status error';return}
+    cSubmitting=true;
     if(cSubmitBtn)cSubmitBtn.disabled=true;
-    cMsg.textContent='Submitting...';cMsg.className='status';
+    cMsg.textContent='Submitting...';cMsg.className='status';cMsg.setAttribute('aria-live','polite');
     const cfd=new FormData(careersForm);
     const smsPayload={type:'careers',name:cfd.get('name'),email:cfd.get('email'),position:cfd.get('position')};
     fetch('/',{method:'POST',body:cfd})
-      .then(()=>{
+      .then(res=>{
+        if(!res.ok)throw new Error('submission rejected');
         cMsg.textContent='Thank you. Your application has been sent to the CrediConnect HR team.';
         cMsg.className='status success';
         notifyTelegram(smsPayload);
@@ -63,7 +101,7 @@ if(careersForm){
         cMsg.textContent='Something went wrong submitting your application. Please try again or email us directly.';
         cMsg.className='status error';
       })
-      .finally(()=>{if(cSubmitBtn)cSubmitBtn.disabled=false});
+      .finally(()=>{cSubmitting=false;if(cSubmitBtn)cSubmitBtn.disabled=false});
   };
 }
 

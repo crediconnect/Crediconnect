@@ -47,9 +47,48 @@ One-time setup after deploying to Netlify:
    rows with "+ Add...", edit any field inline, remove with "Remove",
    then "Save" each section separately.
 
-Note: admin.html has no built-in rate limiting or account system beyond
-the single shared password — fine for a class project / internal demo,
-not for a real production site with sensitive data.
+Security hardening (added on top of the original shared-password/OTP setup):
+- Rate limiting: admin-auth, send-otp and verify-otp each limit attempts
+  per client IP (5–8 tries per 15-minute window) and lock out for 15
+  minutes once exceeded. notify-telegram is also capped (10/15 min) since
+  it's a public endpoint anyone could otherwise call directly to spam the
+  staff Telegram bot.
+- The OTP code itself is also capped at 5 wrong guesses before it's
+  invalidated and a new one has to be requested.
+- Password comparisons (ADMIN_PASSWORD and the OTP code) use a
+  constant-time check so response timing can't be used to guess them
+  character by character.
+- Sessions issued after OTP verification: fixed 2-hour absolute expiry, but
+  also extend on active use (30-minute sliding idle window, never past the
+  2-hour cap) so the portal doesn't get logged out mid-edit. There's now a
+  "Sign out" button in admin.html that calls revoke-session.js to delete
+  the session immediately server-side, rather than leaving it valid until
+  it naturally expires.
+- Every leadership/KPI/jobs save is written to a capped audit log (last
+  200 entries — action, section, item count, timestamp), viewable in
+  admin.html under the new "Activity Log" tab. This is the closest
+  equivalent to per-user accountability the site has, since everyone still
+  signs in with one shared password.
+- The admin write endpoints (leadership/kpis/jobs POST) check the request's
+  Origin header against the site's own host as defense-in-depth against
+  CSRF. This isn't strictly needed today — the admin app authenticates with
+  an explicit header, not an ambient cookie, so a third-party site can't
+  make the browser send it automatically — but it's a cheap second layer
+  in case sessions ever move to cookies later.
+
+Still true, and worth knowing before handling real sensitive data: this
+remains a single shared password rather than per-user accounts, there's no
+password hashing/rotation flow, and Netlify Blobs isn't an audited
+compliance-grade datastore. Fine for a class project / internal demo, but
+a real production financial-services portal would still want per-user
+authentication (e.g. an identity provider) before going live.
+
+Telegram privacy: the instant staff alert for contact/careers submissions
+no longer includes the visitor's name, email, or company — it just says a
+new inquiry/application came in (and, for careers, which role) and points
+staff to the Netlify dashboard, where the actual submission with personal
+details is stored. Personal information is no longer relayed through a
+third-party chat app.
 
 Staff Portal login code via Telegram (optional, added on top of the above):
 - Staff Portal sign-in: after the correct password, admin.html now also
@@ -73,8 +112,10 @@ Staff Portal login code via Telegram (optional, added on top of the above):
 Instant alerts to staff (separate from the login code above):
 - Every time the contact form or careers application is successfully
   submitted, an instant message is sent to a Telegram chat via a free
-  Telegram bot, e.g. "New contact inquiry — CrediConnect Solutions.
-  Name: Juan Dela Cruz. Company: ..., Email: juan@email.com."
+  Telegram bot, e.g. "New contact inquiry received — check the Netlify
+  dashboard for details." (careers alerts also name the role applied for).
+- These alerts are intentionally minimal and no longer include the
+  visitor's name, email, or company — see "Telegram privacy" above.
 - This is a one-way alert to staff, not a code anyone has to enter — it's
   purely informational, sent right after a successful submission.
 - This uses Telegram instead of real SMS because genuine SMS delivery

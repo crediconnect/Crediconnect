@@ -48,10 +48,14 @@
     <p style="color:var(--muted)">Changes here update About, and Careers pages for every visitor once saved.</p>
   </div>
 
-  <div class="admin-tabs">
-    <button class="admin-tab active" data-panel="leadership">Leadership</button>
-    <button class="admin-tab" data-panel="kpis">KPI Dashboard</button>
-    <button class="admin-tab" data-panel="jobs">Open Roles</button>
+  <div class="admin-tabs" style="justify-content:space-between">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="admin-tab active" data-panel="leadership">Leadership</button>
+      <button class="admin-tab" data-panel="kpis">KPI Dashboard</button>
+      <button class="admin-tab" data-panel="jobs">Open Roles</button>
+      <button class="admin-tab" data-panel="activity">Activity Log</button>
+    </div>
+    <button type="button" id="signOutBtn" class="admin-tab" style="background:#fbeceb;color:#a83a34;border-color:#f0cfcd">Sign out</button>
   </div>
 
   <div class="admin-panel active" id="panel-leadership">
@@ -71,6 +75,11 @@
     <div id="jobsRows"></div>
     <button class="add-row" type="button" data-add="jobs">+ Add open role</button>
     <div class="save-bar"><button class="btn primary" data-save="jobs">Save open roles</button><span class="status" id="status-jobs"></span></div>
+  </div>
+
+  <div class="admin-panel" id="panel-activity">
+    <p class="note" style="margin-bottom:14px">A record of recent content changes made through this Staff Portal — because everyone signs in with the same shared password, this is the only way to see who changed what and when (based on the device that made the change).</p>
+    <div id="activityRows" style="display:flex;flex-direction:column;gap:8px"></div>
   </div>
 </div>
 
@@ -107,7 +116,10 @@ $('#unlockBtn').onclick=async()=>{
   lockMsg.textContent='Checking...';lockMsg.className='status';
   try{
     const res=await fetch(api('admin-auth'),{method:'POST',headers:{'X-Admin-Password':pw}});
-    if(!res.ok){lockMsg.textContent='Incorrect password.';lockMsg.className='status error';return}
+    if(!res.ok){
+      const data=await res.json().catch(()=>({}));
+      lockMsg.textContent=data.error||'Incorrect password.';lockMsg.className='status error';return;
+    }
     PASSWORD=pw;
     // Password is correct. Try to layer a Telegram-delivered OTP on top; if
     // that isn't configured on this deploy, just sign in on the password alone.
@@ -147,6 +159,18 @@ $('#otpConfirmBtn').onclick=async()=>{
 };
 $('#otpCodeInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#otpConfirmBtn').click()});
 
+$('#signOutBtn').onclick=async()=>{
+  try{
+    if(SESSION_TOKEN){await fetch(api('revoke-session'),{method:'POST',headers:{'X-Admin-Session':SESSION_TOKEN}})}
+  }catch{/* sign out locally regardless of network result */}
+  PASSWORD='';SESSION_TOKEN='';
+  $('#adminApp').style.display='none';
+  $('#otpScreen').style.display='none';
+  $('#pwInput').value='';
+  $('#lockMsg').textContent='';
+  $('#lockScreen').style.display='block';
+};
+
 $('#otpResendBtn').onclick=async()=>{
   const otpMsg=$('#otpMsg');
   otpMsg.textContent='Resending...';otpMsg.className='status';
@@ -161,14 +185,35 @@ $('#otpResendBtn').onclick=async()=>{
 };
 
 // Tabs
-$$('.admin-tab').forEach(tab=>tab.onclick=()=>{
-  $$('.admin-tab').forEach(t=>t.classList.remove('active'));
+$$('.admin-tab[data-panel]').forEach(tab=>tab.onclick=()=>{
+  $$('.admin-tab[data-panel]').forEach(t=>t.classList.remove('active'));
   $$('.admin-panel').forEach(p=>p.classList.remove('active'));
   tab.classList.add('active');
   $('#panel-'+tab.dataset.panel).classList.add('active');
+  if(tab.dataset.panel==='activity')loadActivityLog();
 });
 
 // ---- Field schemas per data type ----
+const SECTION_LABELS={leadership:'Leadership roster',kpis:'KPI dashboard',jobs:'Open roles'};
+
+async function loadActivityLog(){
+  const wrap=$('#activityRows');
+  wrap.innerHTML='<p class="note">Loading...</p>';
+  try{
+    const res=await authedFetch('audit-log');
+    if(!res.ok)throw new Error();
+    const log=await res.json();
+    if(!Array.isArray(log)||!log.length){wrap.innerHTML='<p class="note">No changes recorded yet.</p>';return}
+    wrap.innerHTML=log.map(e=>{
+      const when=new Date(e.at).toLocaleString();
+      const what=SECTION_LABELS[e.section]||e.section||'content';
+      return `<div class="admin-row" style="padding:10px 14px"><b>${esc(what)} updated</b><span class="note" style="margin-left:8px">${esc(String(e.count??''))} item(s) — ${esc(when)}</span></div>`;
+    }).join('');
+  }catch{
+    wrap.innerHTML='<p class="note">Could not load the activity log.</p>';
+  }
+}
+
 const SCHEMAS={
   leadership:[
     {key:'initials',label:'Initials (e.g. CEO)'},
