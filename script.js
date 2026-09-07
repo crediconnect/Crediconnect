@@ -105,6 +105,42 @@ if(careersForm){
   };
 }
 
+// Loan application form
+const loanForm=$('#loanForm');
+if(loanForm){
+  const lMsg=$('#loanFormMessage');
+  const lFields=$$('input,textarea,select',loanForm).filter(f=>f.name!=='bot-field'&&f.name!=='form-name');
+  const lValid=f=>{const ok=f.checkValidity();f.closest('.field').classList.toggle('valid',ok);f.closest('.field').classList.toggle('invalid',!ok);return ok};
+  lFields.forEach(f=>['input','blur','change'].forEach(ev=>f.addEventListener(ev,()=>lValid(f))));
+  const lSubmitBtn=$('button[type=submit]',loanForm);
+  let lSubmitting=false;
+  loanForm.onsubmit=e=>{
+    e.preventDefault();
+    if(lSubmitting)return;
+    const ok=lFields.every(lValid);
+    if(!ok){lMsg.textContent='Please check the highlighted fields.';lMsg.className='status error';return}
+    lSubmitting=true;
+    if(lSubmitBtn)lSubmitBtn.disabled=true;
+    lMsg.textContent='Submitting...';lMsg.className='status';lMsg.setAttribute('aria-live','polite');
+    const lfd=new FormData(loanForm);
+    const smsPayload={type:'loan-application',name:lfd.get('name'),email:lfd.get('email'),mobile:lfd.get('mobile'),loanType:lfd.get('loanType'),amount:lfd.get('amount')};
+    fetch('/',{method:'POST',body:lfd})
+      .then(res=>{
+        if(!res.ok)throw new Error('submission rejected');
+        lMsg.textContent='Thank you. Your application has been sent — a loan officer will contact you to verify your details.';
+        lMsg.className='status success';
+        notifyTelegram(smsPayload);
+        loanForm.reset();
+        lFields.forEach(f=>f.closest('.field').classList.remove('valid','invalid'));
+      })
+      .catch(()=>{
+        lMsg.textContent='Something went wrong submitting your application. Please try again or email us directly.';
+        lMsg.className='status error';
+      })
+      .finally(()=>{lSubmitting=false;if(lSubmitBtn)lSubmitBtn.disabled=false});
+  };
+}
+
 // Leadership directory
 function wireLeaderCards(){
   const leaderCards=$$('.leader-card'), teamDetail=$('#teamDetail');
