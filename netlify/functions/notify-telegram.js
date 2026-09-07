@@ -23,13 +23,16 @@ exports.handler = async (event) => {
   // the Netlify dashboard, not to carry the visitor's personal details
   // through a third-party chat app. Name/email/company live only in the
   // actual form submission (Netlify Forms), which staff view there.
-  const { type, position } = body;
+  const { type, position, loanType } = body;
   let text;
   if (type === 'contact') {
     text = '📩 New contact inquiry received — check the Netlify dashboard for details.';
   } else if (type === 'careers') {
     const role = position ? ` for ${String(position).slice(0, 80)}` : '';
     text = `🧑‍💼 New job application received${role} — check the Netlify dashboard for details.`;
+  } else if (type === 'loan-application') {
+    const loan = loanType ? ` (${String(loanType).slice(0, 80)})` : '';
+    text = `💰 New loan application received${loan} — check the Netlify dashboard for details.`;
   } else {
     return json(400, { error: 'Unknown notification type' });
   }
