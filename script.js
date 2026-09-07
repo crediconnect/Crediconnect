@@ -3,7 +3,7 @@ const $=(s,p=document)=>p.querySelector(s), $$=(s,p=document)=>[...p.querySelect
 const menu=$('.menu'), links=$('.nav-links');
 if(menu)menu.onclick=()=>{links.classList.toggle('open');menu.setAttribute('aria-expanded',links.classList.contains('open'))};
 $$('.nav-links a').forEach(a=>a.onclick=()=>links?.classList.remove('open'));
-const observer=new IntersectionObserver(es=>es.forEach(e=>e.isIntersecting&&e.target.classList.add('show')),{threshold:.12});$$('.reveal').forEach(x=>observer.observe(x));
+const observer=new IntersectionObserver(es=>es.forEach(e=>e.target.classList.toggle('show',e.isIntersecting)),{threshold:.12});$$('.reveal').forEach(x=>observer.observe(x));
 // Tabs
 $$('.tabs').forEach(tabs=>{const buttons=$$('.tab',tabs), panels=$$('.tab-panel',tabs.parentElement);const activate=k=>{buttons.forEach(b=>b.classList.toggle('active',b.dataset.tab===k));panels.forEach(p=>p.hidden=p.dataset.panel!==k)};buttons.forEach(b=>b.onclick=()=>activate(b.dataset.tab));if(buttons[0])activate(buttons[0].dataset.tab)});
 // Call flow
