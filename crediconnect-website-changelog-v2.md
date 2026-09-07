@@ -44,3 +44,19 @@
 - **Performance check** — image sizes (especially the two `.webp` facility concept images, ~200–320KB each) haven't been audited for compression; worth a pass before a real launch.
 
 If you want, I can pick up any of these next — the Careers testimonial and Investors pass would be the quickest wins.
+
+---
+
+# Round 3
+
+## What was done
+
+### 1. Customer Service Policy update (Services page)
+- Replaced policy #19 — was "Data Privacy" (do not share or disclose customer information without proper permission), now "Attendance" (inform your supervisor if you will be absent or late).
+- Moved #19 out of the "Integrity & privacy" accordion group into "Service quality," alongside #20 Availability, since it's a staffing/availability policy rather than a privacy one.
+- Updated group counts: Integrity & privacy 3 → 2 policies; Service quality 9 → 10 policies.
+- Refreshed the "Purpose of our Customer Service Policy" paragraph wording ("guidelines on" → "guidelines for," closing line now "promote responsible and professional service" instead of "promote responsible lending").
+
+## What else to consider adding
+
+- Everything listed at the end of Round 2 is still open (Careers testimonial, Investors trust/layout pass, more custom illustration, broader copy tightening, structured data, image compression check).
